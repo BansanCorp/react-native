@@ -22,11 +22,25 @@ import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
-class ReactOkHttpNetworkFetcher extends OkHttpNetworkFetcher {
+import android.os.Looper;
+import com.facebook.imagepipeline.common.BytesRange;
+import com.facebook.imagepipeline.image.EncodedImage;
+import com.facebook.imagepipeline.producers.BaseNetworkFetcher;
+import com.facebook.imagepipeline.producers.BaseProducerContextCallbacks;
+import com.facebook.imagepipeline.producers.Consumer;
+import com.facebook.imagepipeline.producers.FetchState;
+import com.facebook.imagepipeline.producers.ProducerContext;
+import java.io.IOException;
+import javax.annotation.Nullable;
+import okhttp3.Call;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+
+public class ReactOkHttpNetworkFetcher extends OkHttpNetworkFetcher {
 
   private static final String TAG = "ReactOkHttpNetworkFetcher";
 
-  private final OkHttpClient mOkHttpClient;
+  private static OkHttpClient mOkHttpClient;
   private final Executor mCancellationExecutor;
 
   /** @param okHttpClient client to use */
@@ -34,6 +48,10 @@ class ReactOkHttpNetworkFetcher extends OkHttpNetworkFetcher {
     super(okHttpClient);
     mOkHttpClient = okHttpClient;
     mCancellationExecutor = okHttpClient.dispatcher().executorService();
+  }
+
+  public static void setOkHttpClient(OkHttpClient okHttpClient) {
+    mOkHttpClient = okHttpClient;
   }
 
   private Map<String, String> getHeaders(ReadableMap readableMap) {
@@ -74,5 +92,89 @@ class ReactOkHttpNetworkFetcher extends OkHttpNetworkFetcher {
             .build();
 
     fetchWithRequest(fetchState, callback, request);
+  }
+
+  @Override
+  protected void fetchWithRequest(
+      final OkHttpNetworkFetchState fetchState,
+      final NetworkFetcher.Callback callback,
+      final Request request) {
+    final Call call = mOkHttpClient.newCall(request);
+
+    fetchState
+        .getContext()
+        .addCallbacks(
+            new BaseProducerContextCallbacks() {
+              @Override
+              public void onCancellationRequested() {
+                if (Looper.myLooper() != Looper.getMainLooper()) {
+                  call.cancel();
+                } else {
+                  mCancellationExecutor.execute(
+                      new Runnable() {
+                        @Override
+                        public void run() {
+                          call.cancel();
+                        }
+                      });
+                }
+              }
+            });
+
+    call.enqueue(
+        new okhttp3.Callback() {
+          @Override
+          public void onResponse(Call call, Response response) throws IOException {
+            fetchState.responseTime = SystemClock.elapsedRealtime();
+            final ResponseBody body = response.body();
+            try {
+              if (!response.isSuccessful()) {
+                handleException(
+                    call, new IOException("Unexpected HTTP code " + response), callback);
+                return;
+              }
+
+              BytesRange responseRange =
+                  BytesRange.fromContentRangeHeader(response.header("Content-Range"));
+              if (responseRange != null
+                  && !(responseRange.from == 0
+                      && responseRange.to == BytesRange.TO_END_OF_CONTENT)) {
+                // Only treat as a partial image if the range is not all of the content
+                fetchState.setResponseBytesRange(responseRange);
+                fetchState.setOnNewResultStatusFlags(Consumer.IS_PARTIAL_RESULT);
+              }
+
+              long contentLength = body.contentLength();
+              if (contentLength < 0) {
+                contentLength = 0;
+              }
+              callback.onResponse(body.byteStream(), (int) contentLength);
+            } catch (Exception e) {
+              handleException(call, e, callback);
+            } finally {
+              body.close();
+            }
+          }
+
+          @Override
+          public void onFailure(Call call, IOException e) {
+            handleException(call, e, callback);
+          }
+        });
+  }
+
+  /**
+   * Handles exceptions.
+   *
+   * <p>OkHttp notifies callers of cancellations via an IOException. If IOException is caught after
+   * request cancellation, then the exception is interpreted as successful cancellation and
+   * onCancellation is called. Otherwise onFailure is called.
+   */
+  private void handleException(final Call call, final Exception e, final Callback callback) {
+    if (call.isCanceled()) {
+      callback.onCancellation();
+    } else {
+      callback.onFailure(e);
+    }
   }
 }

@@ -18,6 +18,12 @@
                       modifierFlags:(UIKeyModifierFlags)flags
                              action:(void (^)(UIKeyCommand *command))block;
 
+- (void)registerKeyCommand:(NSString *)input
+                      modifierFlags:(UIKeyModifierFlags)flags
+               discoverabilityTitle:(NSString *)discoverabilityTitle
+                             action:(void (^)(UIKeyCommand *))block;
+
+
 /**
  * Unregister a keyboard command.
  */

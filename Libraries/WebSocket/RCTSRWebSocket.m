@@ -24,6 +24,9 @@
 #import <React/RCTAssert.h>
 #import <React/RCTLog.h>
 
+#import <MMKV/MMKV.h>
+#import "SecureStorage.h"
+
 typedef NS_ENUM(NSInteger, RCTSROpCode)  {
   RCTSROpCodeTextFrame = 0x1,
   RCTSROpCodeBinaryFrame = 0x2,
@@ -478,6 +481,38 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   [self _readHTTPHeader];
 }
 
+- (void)setClientSSL:(NSString *)path password:(NSString *)password options:(NSMutableDictionary *)options;
+{    
+    if ([[NSFileManager defaultManager] fileExistsAtPath:path])
+    {
+      NSData *pkcs12data = [[NSData alloc] initWithContentsOfFile:path];
+      NSDictionary* certOptions = @{ (id)kSecImportExportPassphrase:password };
+      CFArrayRef keyref = NULL;
+      OSStatus sanityChesk = SecPKCS12Import((__bridge CFDataRef)pkcs12data,
+                                              (__bridge CFDictionaryRef)certOptions,
+                                              &keyref);
+      if (sanityChesk == noErr) {
+        CFDictionaryRef identityDict = CFArrayGetValueAtIndex(keyref, 0);
+        SecIdentityRef identityRef = (SecIdentityRef)CFDictionaryGetValue(identityDict, kSecImportItemIdentity);
+        SecCertificateRef cert = NULL;
+        OSStatus status = SecIdentityCopyCertificate(identityRef, &cert);
+        if (!status) {
+          NSArray *certificates = [[NSArray alloc] initWithObjects:(__bridge id)identityRef, (__bridge id)cert, nil];
+          [options setObject:certificates forKey:(NSString *)kCFStreamSSLCertificates];
+        }
+      }
+    }
+}
+
+- (NSString *)stringToHex:(NSString *)string
+{
+  char *utf8 = (char *)[string UTF8String];
+  NSMutableString *hex = [NSMutableString string];
+  while (*utf8) [hex appendFormat:@"%02X", *utf8++ & 0x00FF];
+
+  return [[NSString stringWithFormat:@"%@", hex] lowercaseString];
+}
+
 - (void)_initializeStreams
 {
   assert(_url.port.unsignedIntValue <= UINT32_MAX);
@@ -514,6 +549,31 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     [SSLOptions setValue:@NO forKey:(__bridge id)kCFStreamSSLValidatesCertificateChain];
     RCTLogInfo(@"SocketRocket: In debug mode.  Allowing connection to any root cert");
 #endif
+
+    // Read the clientSSL info from MMKV
+    __block NSDictionary *clientSSL;
+    SecureStorage *secureStorage = [[SecureStorage alloc] init];
+
+    // https://github.com/ammarahm-ed/react-native-mmkv-storage/blob/master/src/loader.js#L31
+    [secureStorage getSecureKey:[self stringToHex:@"com.MMKV.default"] callback:^(NSArray *response) {
+      // Error happened
+      if ([response objectAtIndex:0] != [NSNull null]) {
+          return;
+      }
+      NSString *key = [response objectAtIndex:1];
+      NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
+      MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
+
+      clientSSL = [mmkv getObjectOfClass:[NSDictionary class] forKey:host];
+    }];
+
+    if (clientSSL != (id)[NSNull null]) {
+      NSString *path = [clientSSL objectForKey:@"path"];
+      NSString *password = [clientSSL objectForKey:@"password"];
+
+      [self setClientSSL:path password:password options:SSLOptions];
+    }
+
 
     [_outputStream setProperty:SSLOptions
                         forKey:(__bridge id)kCFStreamPropertySSLSettings];
@@ -594,6 +654,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
       }
     }
 
+    [self.delegate webSocket:self didCloseWithCode:code reason:reason wasClean:YES];
     [self _sendFrameWithOpcode:RCTSROpCodeConnectionClose data:payload];
   });
 }
