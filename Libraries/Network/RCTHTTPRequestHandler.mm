@@ -133,23 +133,21 @@ RCT_EXPORT_MODULE()
 -(void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential * _Nullable))completionHandler {
 
   NSString *host = challenge.protectionSpace.host;
-  
+
   // Read the clientSSL info from MMKV
   __block NSDictionary *clientSSL;
   SecureStorage *secureStorage = [[SecureStorage alloc] init];
 
   // https://github.com/ammarahm-ed/react-native-mmkv-storage/blob/master/src/loader.js#L31
-  [secureStorage getSecureKey:[self stringToHex:@"com.MMKV.default"] callback:^(NSArray *response) {
-    // Error happened
-    if ([response objectAtIndex:0] != [NSNull null]) {
-        return;
-    }
-    NSString *key = [response objectAtIndex:1];
-    NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
-    MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
+  NSString *key = [secureStorage getSecureKey:[self stringToHex:@"com.MMKV.default"]];
 
-    clientSSL = [mmkv getObjectOfClass:[NSDictionary class] forKey:host];
-  }];
+  if (key == NULL) {
+    return;
+  }
+
+  NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
+  MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
+  clientSSL = [mmkv getObjectOfClass:[NSDictionary class] forKey:host];
 
   NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
 
