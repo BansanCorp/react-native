@@ -135,7 +135,7 @@ RCT_EXPORT_MODULE()
   NSString *host = challenge.protectionSpace.host;
 
   // Read the clientSSL info from MMKV
-  __block NSDictionary *clientSSL;
+  __block NSString *clientSSL;
   SecureStorage *secureStorage = [[SecureStorage alloc] init];
 
   // https://github.com/ammarahm-ed/react-native-mmkv-storage/blob/master/src/loader.js#L31
@@ -147,13 +147,15 @@ RCT_EXPORT_MODULE()
 
   NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
   MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
-  clientSSL = [mmkv getObjectOfClass:[NSDictionary class] forKey:host];
+  clientSSL = [mmkv getStringForKey:host];
+  NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
+  id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 
   NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
 
-  if (clientSSL != (id)[NSNull null]) {
-    NSString *path = [clientSSL objectForKey:@"path"];
-    NSString *password = [clientSSL objectForKey:@"password"];
+  if (dict != (id)[NSNull null]) {
+    NSString *path = [dict objectForKey:@"path"];
+    NSString *password = [dict objectForKey:@"password"];
     credential = [self getUrlCredential:challenge path:path password:password];
   }
 
