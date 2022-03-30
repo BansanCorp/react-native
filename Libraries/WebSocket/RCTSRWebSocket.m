@@ -564,14 +564,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
     MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
     clientSSL = [mmkv getStringForKey:host];
-    NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
-    id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-
-    if (dict != (id)[NSNull null]) {
-      NSString *path = [dict objectForKey:@"path"];
-      NSString *password = [dict objectForKey:@"password"];
-
-      [self setClientSSL:path password:password options:SSLOptions];
+    if ([clientSSL length] != 0) {
+        NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
+        id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        NSString *path = [dict objectForKey:@"path"];
+        NSString *password = [dict objectForKey:@"password"];
+        [self setClientSSL:path password:password options:SSLOptions];
     }
 
     [_outputStream setProperty:SSLOptions

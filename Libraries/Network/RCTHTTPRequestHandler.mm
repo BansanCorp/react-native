@@ -145,15 +145,14 @@ RCT_EXPORT_MODULE()
     return;
   }
 
+  NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
   NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
   MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
   clientSSL = [mmkv getStringForKey:host];
-  NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
-  id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 
-  NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
-
-  if (dict != (id)[NSNull null]) {
+  if ([clientSSL length] != 0) {
+    NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
+    id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     NSString *path = [dict objectForKey:@"path"];
     NSString *password = [dict objectForKey:@"password"];
     credential = [self getUrlCredential:challenge path:path password:password];
