@@ -150,7 +150,7 @@ RCT_EXPORT_MODULE()
   MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
   clientSSL = [mmkv getStringForKey:host];
 
-  if ([clientSSL length] != 0) {
+  if (clientSSL) {
     NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
     id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
     NSString *path = [dict objectForKey:@"path"];
