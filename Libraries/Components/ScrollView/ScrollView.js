@@ -1785,16 +1785,9 @@ class ScrollView extends React.Component<Props, State> {
         // however, the ScrollView still needs the baseStyle to be scrollable
         const {outer, inner} = splitLayoutProps(flattenStyle(props.style));
 
-        // Workaround for RefreshControl inverted: https://github.com/facebook/react-native/issues/30034
-        let inverted;
-        if (inner.scaleY) {
-          inverted = { scaleY: -1 };
-          delete inner.scaleY;
-        }
-
         return React.cloneElement(
           refreshControl,
-          {style: StyleSheet.compose(baseStyle, outer, inverted)},
+          {style: StyleSheet.compose(baseStyle, outer)},
           <NativeDirectionalScrollView
             {...props}
             style={StyleSheet.compose(baseStyle, inner)}
