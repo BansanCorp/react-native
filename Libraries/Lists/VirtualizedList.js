@@ -9,7 +9,6 @@
  */
 
 const Batchinator = require('../Interaction/Batchinator');
-const Platform = require('../Utilities/Platform');
 const FillRateHelper = require('./FillRateHelper');
 const ReactNative = require('../Renderer/shims/ReactNative');
 const RefreshControl = require('../Components/RefreshControl/RefreshControl');
@@ -2109,16 +2108,9 @@ function describeNestedLists(childList: {
 }
 
 const styles = StyleSheet.create({
-  // Workaround found on https://github.com/facebook/react-native/issues/30034#issuecomment-806396274
-  // Note: Check ScrollView for a workaround on RefreshControl
-  verticallyInverted:
-    Platform.OS === 'android'
-      ? {
-          scaleY: -1,
-        }
-      : {
-          transform: [{scaleY: -1}]
-        },
+  verticallyInverted: {
+    transform: [{scaleY: -1}],
+  },
   horizontallyInverted: {
     transform: [{scaleX: -1}],
   },
