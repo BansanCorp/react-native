@@ -557,19 +557,17 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     // https://github.com/ammarahm-ed/react-native-mmkv-storage/blob/master/src/loader.js#L31
     NSString *key = [secureStorage getSecureKey:[self stringToHex:@"com.MMKV.default"]];
 
-    if (key == NULL) {
-      return;
-    }
-
-    NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
-    MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
-    clientSSL = [mmkv getStringForKey:host];
-    if (clientSSL) {
-        NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
-        id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        NSString *path = [dict objectForKey:@"path"];
-        NSString *password = [dict objectForKey:@"password"];
-        [self setClientSSL:path password:password options:SSLOptions];
+    if (key != NULL) {
+      NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
+      MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
+      clientSSL = [mmkv getStringForKey:host];
+      if (clientSSL) {
+          NSData *data = [clientSSL dataUsingEncoding:NSUTF8StringEncoding];
+          id dict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+          NSString *path = [dict objectForKey:@"path"];
+          NSString *password = [dict objectForKey:@"password"];
+          [self setClientSSL:path password:password options:SSLOptions];
+      }
     }
 
     [_outputStream setProperty:SSLOptions

@@ -140,12 +140,12 @@ RCT_EXPORT_MODULE()
 
   // https://github.com/ammarahm-ed/react-native-mmkv-storage/blob/master/src/loader.js#L31
   NSString *key = [secureStorage getSecureKey:[self stringToHex:@"com.MMKV.default"]];
+  NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
 
   if (key == NULL) {
-    return;
+    return completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, credential);
   }
 
-  NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
   NSData *cryptKey = [key dataUsingEncoding:NSUTF8StringEncoding];
   MMKV *mmkv = [MMKV mmkvWithID:@"default" cryptKey:cryptKey mode:MMKVMultiProcess];
   clientSSL = [mmkv getStringForKey:host];
